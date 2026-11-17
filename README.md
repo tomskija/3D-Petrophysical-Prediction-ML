@@ -1,106 +1,154 @@
-# Bayesian-Neural-Network-Geophysics
+# 3D-Petrophysical-Prediction-ML
 
-A Python project applying Bayesian Neural Networks to unconventional reservoir characterization on Bakken field data. Rooted in my UT Austin Master's thesis and peer-reviewed publication in AAPG Bulletin — actively being extended and improved beyond the original work.
+**By: Jackson R. Tomski**
 
-The core idea: predict petrophysical properties (total porosity, TOC) from well log and 3D seismic data using MCMC via Langevin dynamics, while producing calibrated uncertainty estimates (mean, P10, P90) alongside each prediction.
+This project predicts petrophysical properties (total porosity and TOC) across a 3D seismic volume using a Bayesian Neural Network trained on well logs and inverted P-impedance. Instead of a single prediction at each location, the BNN gives a mean plus P10/P90 so you can see where the model is confident and where it isn't.
 
-## What is this?
+It started as my UT Austin Master's thesis and AAPG Bulletin paper on the Bakken Formation. The original work used real well and seismic data that I can't share, so this repo runs on synthetic data built to look like it: a layered earth model, a P-impedance volume, horizons, and well logs, all generated from inputs you control. Because the synthetic data comes with the true porosity and TOC behind it, you can check whether the model actually recovers the truth and whether its P10/P90 bracket it.
 
-The BNN uses Markov Chain Monte Carlo via Langevin dynamics to sample from the posterior distribution — this gives you uncertainty estimates, not just point predictions. The workflow integrates prestack seismic inversion output with well log data to predict reservoir properties spatially across the 3D seismic volume.
+---
+
+## What's Inside
+
+### Synthetic Dataset Generator
+
+`dataPrep/syntheticData.py` builds a full dataset from an input JSON. Nothing about the survey is hard coded.
+
+1. **Horizons** from a shared structure (dip plus smooth relief) with thickness changes between each pair. Horizons are forced to never cross.
+2. **Zones** between horizons, each with its own porosity, TOC and matrix velocity ranges. Properties vary laterally and vertically using smooth random fields.
+3. **Rock physics** to get impedance: TOC converts to kerogen volume, density comes from mixing matrix, kerogen and fluid, and velocity drops with porosity and kerogen. Zp = density x velocity.
+4. **Inverted-volume look** by blurring the true Zp and adding noise, so it reads like an inversion result and not a perfect model.
+5. **Wells** at any inline/xline. Logs are converted from time to depth with the true velocity, sampled in MD, and include high and low resolution curves, measurement noise, and -999.25 nulls. A seismic-scaled sheet averages the logs into each seismic sample.
+
+| File | What it is |
+|------|------------|
+| `seismic.sgy` | P-impedance volume (SEG-Y, inline/xline header bytes set from the inputs) |
+| `horizons.xlsx` | One row per trace: Inline, Xline, X, Y, and a time for each horizon |
+| `well_logs.xlsx` | Per well: logs in MD and a seismic-scaled sheet in time |
+| `truth.npz` | True porosity, TOC, Zp and zone cubes |
+| `manifest.json` | Geometry, file names, ranges and wells, read by the data checks |
+
+The example config (120 x 80 traces x 221 samples) is about 11 MB and builds in a few seconds. There's a size guard so you don't accidentally write a multi-GB SEG-Y.
+
+### Data Checks
+
+Same idea as the data check at the start of Production-Prediction-ML: catch bad inputs before anything touches a model, and report every problem at once.
+
+- **`checkSyntheticInputs`** validates generator inputs: types, ranges, horizons shallow to deep, one more zone than horizons, wells inside the survey, file size.
+- **`checkDataset`** validates any dataset through its manifest, synthetic or real: SEG-Y geometry and sample rate, Zp range, horizon rows and crossings, well sheet columns, null fractions, and MD/TWT increasing.
+
+### Bayesian Neural Network
+
+`models/bnn.py` and `models/mcmc.py` are the thesis BNN rebuilt as a package. It samples the posterior over network weights with MCMC using Langevin dynamics, which uses the gradient to propose better moves than a plain random walk. Predictions come back as mean, P10 and P90.
+
+### Calculator
+
+`Calculator.py` follows the same flow as Production-Prediction-ML:
+
+```
+input JSON → checkData → build or load dataset → checkDataset → MLflow logging → output wrapper
+```
+
+`dataset_mode` is either `synthetic` (build one from the inputs) or `existing` (point `manifest_path` at a dataset you already have).
+
+---
+
+## Getting Started
+
+**You need:** Docker Desktop and VS Code with the Dev Containers extension.
+
+```bash
+git clone https://github.com/tomskija/3D-Petrophysical-Prediction-ML.git
+cd 3D-Petrophysical-Prediction-ML
+```
+
+Open the folder in VS Code and select **Reopen in Container**. Docker Compose starts two services: the calculator and an MLflow tracking server.
+
+**Run the calculator:**
+```bash
+python rockPropCalculator/Calculator.py
+```
+
+**Only build a synthetic dataset:**
+```bash
+python -m dataPrep.syntheticData tests/in_jsons/synthetic_small.json
+```
+
+**Run the test suite:**
+```bash
+pytest tests -v
+```
+
+**Without VS Code:**
+```bash
+docker compose up -d --build
+docker compose exec calculator pytest tests -v
+docker compose exec calculator python rockPropCalculator/Calculator.py
+```
+
+| Service   | URL                   |
+|-----------|-----------------------|
+| MLflow UI | http://localhost:5001 |
+
+MLflow is on 5001 so it can run next to Production-Prediction-ML on 5000.
+
+---
+
+## Configuration
+
+Inputs use the same `params` / `tables` JSON format as Production-Prediction-ML. Anything you leave out falls back to a generic default. The main ones:
+
+| Parameter | What it does |
+|-----------|--------------|
+| `dataset_mode` | `synthetic` or `existing` |
+| `manifest_path` | Dataset to load when `dataset_mode` is `existing` |
+| `n_inlines`, `n_xlines` | Survey size |
+| `t_start_ms`, `t_end_ms`, `dt_ms` | Time window and sample rate |
+| `horizon_names`, `horizon_mean_time_ms` | Horizons, shallow to deep |
+| `zone_phi_mean`, `zone_toc_mean`, `zone_vp_matrix_fts` | Rock properties per zone (one more value than horizons) |
+| `well_names`, `well_inlines`, `well_xlines` | Where the wells go |
+| `target_horizons` | Top and base of the logged interval |
+| `zp_min`, `zp_max` | Impedance range, used for clipping and checks |
+| `random_seed` | Same seed, same dataset |
+
+See `tests/in_jsons/testCase01.json` for a full example. Generated data goes to `Data/Synthetic/`, which is gitignored.
+
+---
 
 ## Project Structure
 
 ```
-Bayesian-Neural-Network-Geophysics/
-├── .devcontainer/              # VS Code dev container config
+3D-Petrophysical-Prediction-ML/
+├── .devcontainer/devcontainer.json     # Dev container config
+├── .github/workflows/ci.yml            # Builds the Docker stack, runs pytest and the calculator
 ├── rockPropCalculator/
-│   ├── config.py               # hyperparameters and constants
-│   ├── main.py                 # main workflow entry point
-│   ├── Data/                   # input data files (well logs, seismic)
-│   ├── FiguresAndResults/      # output plots and predictions
-│   ├── data/                   # data loading and processing
-│   ├── models/                 # BNN + MCMC implementation
-│   └── utils/                  # metrics and visualization
+│   ├── Calculator.py                   # Orchestrator
+│   ├── dataPrep/
+│   │   ├── syntheticData.py            # Synthetic seismic, horizons and well logs
+│   │   ├── dataChecks.py               # Input and dataset checks
+│   │   ├── inputWrapper.py             # JSON input parser
+│   │   ├── outputWrapper.py            # Output wrapper
+│   │   └── mlFlowConfig.py             # MLflow (Docker server or local SQLite)
+│   ├── models/
+│   │   ├── bnn.py                      # Bayesian Neural Network
+│   │   ├── mcmc.py                     # Langevin dynamics MCMC sampler
+│   │   └── config.py                   # BNN and MCMC settings
+│   ├── DataFiles/                      # Well, horizon and seismic loaders
+│   ├── utils/                          # Metrics and plotting
+│   └── main.py                         # Original thesis workflow
 ├── tests/
-├── Dockerfile
-├── docker-compose.yml
-├── Makefile
+│   ├── in_jsons/                       # pytest input configs
+│   ├── test_synthetic_data.py
+│   ├── test_calculator.py
+│   └── test_bnn.py
+├── conftest.py                         # pytest path config
+├── Dockerfile                          # Python 3.11
+├── Dockerfile.mlflow                   # MLflow server
+├── docker-compose.yml                  # calculator, mlflow
 └── requirements.txt
 ```
 
-## Getting Started
-
-### VS Code Dev Container (easiest)
-
-```bash
-git clone git@github.com:tomskija/Bayesian-Neural-Network-Geophysics.git
-cd Bayesian-Neural-Network-Geophysics
-code .
-```
-
-Hit `F1` → `Dev Containers: Reopen in Container`, then:
-
-```bash
-cd rockPropCalculator
-python main.py
-```
-
-### Docker Compose
-
-```bash
-docker-compose up -d
-docker exec -it bakken-bnn-dev bash
-cd rockPropCalculator && python main.py
-```
-
-### Local Python
-
-```bash
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-pip install -e .
-cd rockPropCalculator && python main.py
-```
-
-## Data
-
-Place your data files in `rockPropCalculator/Data/`:
-
-- `WellLogData.xlsx` — well log data (Lucy and Edwards wells)
-- `Bakken_Horizons_3D.xlsx` — horizon interpretations
-- `InvertedVol_*.sgy` — 3D seismic volume (P-Impedance)
-
-Results and figures are written to `FiguresAndResults/`.
-
-## Running the Workflow
-
-```bash
-make example    # quick example
-make run        # full workflow
-make test       # run tests
-make format     # black formatting
-make lint       # flake8
-```
-
-## Quick Code Example
-
-```python
-from models import BayesianNeuralNetwork, MCMCSampler
-
-bnn = BayesianNeuralNetwork([1, 11, 1], train_data, test_data)
-sampler = MCMCSampler(bnn, use_langevin=True)
-results = sampler.sample(n_samples=400, w_step=0.026, tau_step=0.05)
-# predictions include mean, P10, P90 uncertainty estimates
-```
-
-## Troubleshooting
-
-**Low MCMC acceptance rate (<20%)** — decrease `w_limit` and `tau_limit` in `config.py`
-
-**High acceptance rate (>60%)** — increase `w_limit` and `tau_limit`
-
-**Poor convergence** — increase `n_samples` or try adjusting the network topology in `config.py`
+---
 
 ## Citation
 
@@ -108,18 +156,26 @@ This repo builds on the following work:
 
 **Journal Publication**
 ```
-Tomski, J.R., Sen, M.K., Hess, T.E., Pyrcz, M.J. (2022). Unconventional reservoir 
-characterization by seismic inversion and machine learning of the Bakken Formation. 
-AAPG Bulletin, 106(11): 2203–2223. https://doi.org/10.1306/12162121035
+Tomski, J.R., Sen, M.K., Hess, T.E., Pyrcz, M.J. (2022). Unconventional reservoir
+characterization by seismic inversion and machine learning of the Bakken Formation.
+AAPG Bulletin, 106(11): 2203-2223. https://doi.org/10.1306/12162121035
 ```
 
 **Master's Thesis**
 ```
-Tomski, J.R. (2020). Unconventional reservoir parameter estimation by seismic inversion 
-and machine learning of the Bakken Formation, North Dakota. 
+Tomski, J.R. (2020). Unconventional reservoir parameter estimation by seismic inversion
+and machine learning of the Bakken Formation, North Dakota.
 Master's Thesis, University of Texas at Austin.
 ```
 
-## Questions / Issues
+---
 
-Open an issue [here](https://github.com/tomskija/Bayesian-Neural-Network-Geophysics/issues).
+## Data
+
+The original thesis used proprietary well and seismic data that is not included and never will be. Everything in this repo runs on synthetic data from `dataPrep/syntheticData.py`.
+
+---
+
+## Dependencies
+
+Python 3.11 · numpy · pandas · scipy · scikit-learn · segyio · matplotlib · seaborn · openpyxl · mlflow · pytest

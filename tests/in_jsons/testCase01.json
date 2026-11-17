@@ -1,0 +1,193 @@
+{
+    "data": {
+        "params": [
+            {
+                "name": "dataset_mode",
+                "value": "synthetic",
+                "valueType": 3
+            },
+            {
+                "name": "name",
+                "value": "Petrophysical_Test01",
+                "valueType": 3
+            },
+            {
+                "name": "random_seed",
+                "value": 5195,
+                "valueType": 2
+            },
+            {
+                "name": "output_dir",
+                "value": "Data/Synthetic/small",
+                "valueType": 3
+            },
+            {
+                "name": "n_inlines",
+                "value": 120,
+                "valueType": 2
+            },
+            {
+                "name": "n_xlines",
+                "value": 80,
+                "valueType": 2
+            },
+            {
+                "name": "t_start_ms",
+                "value": 1740,
+                "valueType": 2
+            },
+            {
+                "name": "t_end_ms",
+                "value": 1960,
+                "valueType": 2
+            },
+            {
+                "name": "dt_ms",
+                "value": 1.0,
+                "valueType": 2
+            },
+            {
+                "name": "zp_min",
+                "value": 20000,
+                "valueType": 2
+            },
+            {
+                "name": "zp_max",
+                "value": 65000,
+                "valueType": 2
+            },
+            {
+                "name": "phi_min",
+                "value": 0.0,
+                "valueType": 2
+            },
+            {
+                "name": "phi_max",
+                "value": 0.35,
+                "valueType": 2
+            },
+            {
+                "name": "null_fraction",
+                "value": 0.01,
+                "valueType": 2
+            }
+        ],
+        "tables": [
+            {
+                "name": "horizon_names",
+                "values": [
+                    "Horizon_01",
+                    "Horizon_02",
+                    "Horizon_03",
+                    "Horizon_04"
+                ]
+            },
+            {
+                "name": "horizon_mean_time_ms",
+                "values": [
+                    1790,
+                    1815,
+                    1865,
+                    1915
+                ]
+            },
+            {
+                "name": "horizon_relief_ms",
+                "values": [
+                    0,
+                    2,
+                    4,
+                    4
+                ]
+            },
+            {
+                "name": "zone_names",
+                "values": [
+                    "Zone_00",
+                    "Zone_01",
+                    "Zone_02",
+                    "Zone_03",
+                    "Zone_04"
+                ]
+            },
+            {
+                "name": "zone_phi_mean",
+                "values": [
+                    0.04,
+                    0.07,
+                    0.09,
+                    0.06,
+                    0.05
+                ]
+            },
+            {
+                "name": "zone_phi_std",
+                "values": [
+                    0.01,
+                    0.015,
+                    0.02,
+                    0.015,
+                    0.01
+                ]
+            },
+            {
+                "name": "zone_toc_mean",
+                "values": [
+                    0.3,
+                    10.0,
+                    1.0,
+                    0.5,
+                    0.3
+                ]
+            },
+            {
+                "name": "zone_toc_std",
+                "values": [
+                    0.1,
+                    2.5,
+                    0.4,
+                    0.2,
+                    0.1
+                ]
+            },
+            {
+                "name": "zone_vp_matrix_fts",
+                "values": [
+                    19000,
+                    15500,
+                    17500,
+                    18500,
+                    19500
+                ]
+            },
+            {
+                "name": "well_names",
+                "values": [
+                    "Well_A",
+                    "Well_B"
+                ]
+            },
+            {
+                "name": "well_inlines",
+                "values": [
+                    1040,
+                    1090
+                ]
+            },
+            {
+                "name": "well_xlines",
+                "values": [
+                    1025,
+                    1060
+                ]
+            },
+            {
+                "name": "target_horizons",
+                "values": [
+                    "Horizon_01",
+                    "Horizon_03"
+                ]
+            }
+        ]
+    }
+}

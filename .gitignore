@@ -174,3 +174,12 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+# Scratch
+_to_delete/
+
+# Test input JSONs must be tracked (overrides *.json above)
+!tests/in_jsons/*.json
+
+# MLflow local stores
+mlruns/
+mlflow.db

@@ -4,7 +4,7 @@ Unit tests for Bayesian Neural Network
 
 import pytest
 import numpy as np
-from rockPropCalculator.models import BayesianNeuralNetwork, MCMCSampler
+from models import BayesianNeuralNetwork, MCMCSampler
 
 
 def test_bnn_initialization():
