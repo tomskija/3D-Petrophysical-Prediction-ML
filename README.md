@@ -62,7 +62,7 @@ git clone https://github.com/tomskija/3D-Petrophysical-Prediction-ML.git
 cd 3D-Petrophysical-Prediction-ML
 ```
 
-Open the folder in VS Code and select **Reopen in Container**. Docker Compose starts two services: the calculator and an MLflow tracking server.
+Open the folder in VS Code and select **Reopen in Container**. Docker Compose starts three services: the calculator, its FastAPI server, and an MLflow tracking server.
 
 **Run the calculator:**
 ```bash
@@ -88,9 +88,27 @@ docker compose exec calculator python rockPropCalculator/Calculator.py
 
 | Service   | URL                   |
 |-----------|-----------------------|
+| API       | http://localhost:8001  |
+| API Docs  | http://localhost:8001/docs |
 | MLflow UI | http://localhost:5001 |
 
 MLflow is on 5001 so it can run next to Production-Prediction-ML on 5000.
+
+---
+
+## API Endpoints
+
+| Method | Endpoint                | Description                                        |
+|--------|-------------------------|----------------------------------------------------|
+| `GET`  | `/health`               | Check if the API is running                        |
+| `GET`  | `/ready`                | Check the calculator and its schema load           |
+| `GET`  | `/schema`               | Input form definition (fields, types, defaults, groups) used by the UI |
+| `POST` | `/calculate`            | Submit a run with `{"inJson": {...}}`, returns `job_id` immediately |
+| `GET`  | `/runs/{job_id}/status` | Poll run status: pending / queued / running / complete / failed |
+| `GET`  | `/jobs/{job_id}/output` | Output params and tables once the run is complete |
+| `GET`  | `/jobs`                 | List every job the API has seen                    |
+
+Runs go one at a time per calculator in a background thread, and each API run writes to its own folder under `Data/Synthetic/` so runs don't overwrite each other. The full interactive docs are at `http://localhost:8001/docs`. This is the same contract as Production-Prediction-ML, which is what lets [ML-Platform-UI](https://github.com/tomskija/ML-Platform-UI) drive every calculator the same way.
 
 ---
 
@@ -125,6 +143,7 @@ See `tests/in_jsons/testCase01.json` for a full example. Generated data goes to 
 │   ├── Calculator.py                   # Orchestrator
 │   ├── dataPrep/
 │   │   ├── syntheticData.py            # Synthetic seismic, horizons and well logs
+│   │   ├── schema.py                   # Input form definition served at /schema
 │   │   ├── dataChecks.py               # Input and dataset checks
 │   │   ├── inputWrapper.py             # JSON input parser
 │   │   ├── outputWrapper.py            # Output wrapper
@@ -139,12 +158,14 @@ See `tests/in_jsons/testCase01.json` for a full example. Generated data goes to 
 ├── tests/
 │   ├── in_jsons/                       # pytest input configs
 │   ├── test_synthetic_data.py
+│   ├── test_api.py
 │   ├── test_calculator.py
 │   └── test_bnn.py
+├── api.py                              # FastAPI, same calculator contract as PPML
 ├── conftest.py                         # pytest path config
 ├── Dockerfile                          # Python 3.11
 ├── Dockerfile.mlflow                   # MLflow server
-├── docker-compose.yml                  # calculator, mlflow
+├── docker-compose.yml                  # calculator, api, mlflow
 └── requirements.txt
 ```
 
@@ -178,4 +199,4 @@ The original thesis used proprietary well and seismic data that is not included 
 
 ## Dependencies
 
-Python 3.11 · numpy · pandas · scipy · scikit-learn · segyio · matplotlib · seaborn · openpyxl · mlflow · pytest
+Python 3.11 · numpy · pandas · scipy · scikit-learn · segyio · matplotlib · seaborn · openpyxl · mlflow · pytest · fastapi · uvicorn · pydantic
